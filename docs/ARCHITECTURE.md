@@ -1,4 +1,4 @@
-# Subuh Tracker — Analysis & Architecture
+# Habit Assic — Analysis & Architecture
 
 > Phase 1 deliverable. Dokumen ini menjadi acuan untuk Phase 2–10.
 > Status: **Draft untuk disetujui** · Tanggal: 27 September 2026
@@ -536,7 +536,7 @@ Google OAuth tidak bisa diotomasi dengan aman. **Keputusan final (Phase 8):** ti
 
 Dibutuhkan sebelum Phase 3 (Database) dan Phase 4 (Auth). Phase 2 bisa berjalan tanpa semua ini.
 
-1. **Supabase project** (disarankan 2: `subuh-tracker-dev` & `subuh-tracker-prod`, keduanya gratis). Siapkan connection string *Transaction pooler* dan *Session/Direct*.
+1. **Supabase project** (disarankan 2: `habit-assic-dev` & `habit-assic-prod`, keduanya gratis). Siapkan connection string *Transaction pooler* dan *Session/Direct*.
    Di mesin ini tidak ada Docker/PostgreSQL lokal, jadi development memakai Supabase dev project.
 2. **Google Cloud OAuth Client** (Web application) dengan redirect URI:
    - `http://localhost:3000/api/auth/callback/google`

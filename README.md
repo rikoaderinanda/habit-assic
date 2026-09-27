@@ -1,4 +1,4 @@
-# Subuh Tracker
+# Habit Assic
 
 Aplikasi web mobile-first untuk monitoring program **Shalat Subuh Berjamaah** anggota asrama.
 Dirancang sebagai *program management system* agar program lain (Tahajud, Puasa, Tilawah, dll.) bisa ditambahkan tanpa mengubah skema.

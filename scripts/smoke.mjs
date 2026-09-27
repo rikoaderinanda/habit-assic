@@ -1,7 +1,7 @@
 /**
  * Post-deploy smoke test — read-only, creates no data, needs no credentials.
  *
- *   npm run smoke -- https://subuh-tracker.vercel.app
+ *   npm run smoke -- https://habit-assic.vercel.app
  *
  * Exits non-zero when any check fails.
  */

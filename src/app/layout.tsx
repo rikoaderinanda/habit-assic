@@ -14,14 +14,14 @@ const fontSans = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "Subuh Tracker",
-    template: "%s · Subuh Tracker",
+    default: "Habit Assic",
+    template: "%s · Habit Assic",
   },
-  description: "Monitoring program Shalat Subuh Berjamaah anggota asrama.",
-  applicationName: "Subuh Tracker",
+  description: "Monitoring program ibadah harian anggota asrama.",
+  applicationName: "Habit Assic",
   // Private app: never index (see also app/robots.ts).
   robots: { index: false, follow: false },
-  appleWebApp: { capable: true, title: "Subuh Tracker", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Habit Assic", statusBarStyle: "default" },
   formatDetection: { telephone: false },
 };
 

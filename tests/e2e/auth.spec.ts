@@ -27,6 +27,8 @@ test.describe("Autentikasi — tanpa login", () => {
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: "Jaga Subuh, jaga istiqamah." })).toBeVisible();
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+    await expect(page).toHaveTitle("Login · Habit Assic");
+    await expect(page.getByText("Habit Assic", { exact: true })).toBeVisible();
 
     await page.goto("/login?error=AccountDisabled");
     await expect(page.getByText("Akun dinonaktifkan")).toBeVisible();

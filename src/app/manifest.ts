@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next";
 /** Installable on Android/iOS home screens ("Add to Home Screen"). */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Subuh Tracker",
-    short_name: "Subuh",
-    description: "Monitoring program Shalat Subuh Berjamaah anggota asrama.",
+    name: "Habit Assic",
+    short_name: "Habit Assic",
+    description: "Monitoring program ibadah harian anggota asrama.",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",

@@ -51,7 +51,7 @@
 }
 
 :root {
-  /* Subuh Tracker — Modern Islamic SaaS palette (white + soft green) */
+  /* Habit Assic — Modern Islamic SaaS palette (white + soft green) */
   --background: oklch(1 0 0);
   --foreground: oklch(0.22 0.02 165);
   --card: oklch(1 0 0);

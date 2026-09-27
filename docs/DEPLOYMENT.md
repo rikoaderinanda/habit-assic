@@ -1,4 +1,4 @@
-# Subuh Tracker — Panduan Deployment
+# Habit Assic — Panduan Deployment
 
 > Phase 9 deliverable. Target: **Vercel (Hobby, gratis)** + **Supabase PostgreSQL (Free)** + **Google OAuth**.
 > Perkiraan waktu: 45–60 menit untuk deploy pertama.
@@ -40,15 +40,15 @@ Di komputer lokal: Node.js ≥ 20.9, Git, dan project ini yang sudah lolos `npm 
 
 ## 2. Siapkan repository GitHub
 
-1. Buat repository **private** baru di GitHub, misalnya `subuh-tracker`. Jangan centang "Add README".
+1. Buat repository **private** baru di GitHub, misalnya `habit-assic`. Jangan centang "Add README".
 2. Di folder project:
 
    ```bash
    git add -A
    git status              # pastikan .env TIDAK ikut (harus sudah di-ignore)
-   git commit -m "Subuh Tracker v1"
+   git commit -m "Habit Assic v1"
    git branch -M main
-   git remote add origin https://github.com/<username>/subuh-tracker.git
+   git remote add origin https://github.com/<username>/habit-assic.git
    git push -u origin main
    ```
 
@@ -61,7 +61,7 @@ Di komputer lokal: Node.js ≥ 20.9, Git, dan project ini yang sudah lolos `npm 
 Gunakan **project terpisah** dari development, agar data test tidak bercampur dengan data asli.
 
 1. https://supabase.com/dashboard → **New project**
-   - **Name:** `subuh-tracker-prod`
+   - **Name:** `habit-assic-prod`
    - **Database password:** klik *Generate a password*. Password yang hanya berisi huruf & angka menghindari masalah URL-encoding (lihat Phase 3). Simpan di password manager.
    - **Region:** **Southeast Asia (Singapore)**, paling dekat ke Indonesia.
    - Plan: Free → **Create new project** (± 2 menit).
@@ -92,9 +92,9 @@ Gunakan **project terpisah** dari development, agar data test tidak bercampur de
 
 ## 4. Google OAuth untuk domain production
 
-Domain Vercel diketahui setelah import (§5), biasanya `https://subuh-tracker.vercel.app` atau `https://subuh-tracker-<acak>.vercel.app`. Setelah domain didapat:
+Domain Vercel diketahui setelah import (§5), biasanya `https://habit-assic.vercel.app` atau `https://habit-assic-<acak>.vercel.app`. Setelah domain didapat:
 
-1. https://console.cloud.google.com → project **Subuh Tracker** → **Google Auth Platform** → **Clients** → klik client **Subuh Tracker Web**.
+1. https://console.cloud.google.com → project Google Cloud Anda (dibuat di Phase 4) → **Google Auth Platform** → **Clients** → klik client **Habit Assic Web** (nama client internal, boleh tetap).
 2. **Authorized JavaScript origins** → *Add URI*: `https://<domain-anda>`
 3. **Authorized redirect URIs** → *Add URI*: `https://<domain-anda>/api/auth/callback/google`
 4. **Save**. Biarkan URI `localhost:3000` yang lama tetap ada untuk development.
@@ -105,7 +105,7 @@ Client ID dan Client secret **tetap sama** dengan yang di `.env` lokal.
 
 ## 5. Vercel: import & environment variables
 
-1. https://vercel.com/new → **Import** repository `subuh-tracker`.
+1. https://vercel.com/new → **Import** repository `habit-assic`.
 2. **Framework Preset:** Next.js (terdeteksi otomatis). **Build Command** biarkan default. `vercel.json` sudah mengatur `npm run vercel-build`.
 3. Buka **Environment Variables** dan isi tabel berikut **sebelum** klik Deploy:
 
@@ -177,7 +177,7 @@ Selama status app Google masih **Testing**, hanya *test user* yang bisa login.
 
 1. Google Cloud → **Google Auth Platform** → **Audience** → **Publish app** → **Confirm**.
 2. Karena scope yang dipakai hanya `openid`, `email`, dan `profile`, **tidak ada review dari Google**.
-3. **Jangan upload logo aplikasi** di halaman Branding. Upload logo memicu proses verifikasi brand yang bisa memakan waktu berhari-hari. Nama aplikasi cukup "Subuh Tracker".
+3. **Jangan upload logo aplikasi** di halaman Branding. Upload logo memicu proses verifikasi brand yang bisa memakan waktu berhari-hari. Nama aplikasi cukup "Habit Assic" (ubah di **Branding → App name** bila masih "Habit Assic").
 4. Bagikan link ke anggota. Setiap anggota otomatis terdaftar sebagai **USER** saat login pertama.
 
 Menambah admin berikutnya: login sebagai admin → **Anggota** → buka anggota → **Jadikan admin**. Tidak perlu redeploy atau mengubah `ADMIN_EMAILS`.

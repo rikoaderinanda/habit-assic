@@ -14,7 +14,7 @@ export function BrandMark({
       <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm shadow-primary/30">
         <MoonStar className="size-5" aria-hidden />
       </span>
-      {withName && <span className="text-lg font-semibold tracking-tight">Subuh Tracker</span>}
+      {withName && <span className="text-lg font-semibold tracking-tight">Habit Assic</span>}
     </div>
   );
 }
