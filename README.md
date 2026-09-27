@@ -30,6 +30,7 @@ npm run dev            # http://localhost:3000
 | `npm run test:unit` | Unit test saja (tanpa database) |
 | `npm run test:e2e` | Playwright E2E: build production di `:3100`, mobile + desktop |
 | `npm run test:all` | Lint + typecheck + semua test |
+| `npm run verify` | Pengecekan cepat yang dijalankan pre-push hook (lint, typecheck, format, unit test) |
 | `npm run db:migrate` | Membuat & menerapkan migration (dev) |
 | `npm run db:deploy` | Menerapkan migration (production) |
 | `npm run db:seed` | Seed data master (program) |
@@ -39,7 +40,7 @@ npm run dev            # http://localhost:3000
 
 ## Deploy
 
-Vercel (region `sin1`) + Supabase (Singapura). Setiap push ke `main`: CI GitHub Actions (lint, typecheck, unit test, build) lalu deploy Vercel, dengan migration otomatis di Production. Langkah lengkap: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Vercel (region `sin1`) + Supabase (Singapura). Setiap `git push` menjalankan **pre-push hook** lokal (lint, typecheck, format, unit test; push dibatalkan kalau gagal). Push ke `main` lalu di-build dan di-deploy Vercel, dengan migration otomatis di Production. Langkah lengkap: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Status
 

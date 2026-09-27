@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs automatically before every `git push` (installed by `npm install` → scripts/install-hooks.mjs).
+# Blocks the push when lint, typecheck, formatting or unit tests fail, so broken
+# code never reaches GitHub/Vercel. Skip once in an emergency: git push --no-verify
+
+echo "pre-push: lint · typecheck · format · unit tests"
+if npm run --silent verify; then
+  echo "pre-push: all checks passed"
+else
+  echo ""
+  echo "pre-push: checks FAILED — push cancelled. Fix the errors above and push again."
+  exit 1
+fi

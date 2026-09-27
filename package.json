@@ -24,7 +24,9 @@
     "test:e2e:report": "playwright show-report",
     "test:all": "npm run lint && npm run typecheck && npm test && npm run test:e2e",
     "vercel-build": "node scripts/vercel-build.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "verify": "npm run lint && npm run typecheck && npm run format:check && npm run test:unit",
+    "prepare": "node scripts/install-hooks.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

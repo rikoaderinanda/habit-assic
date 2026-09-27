@@ -197,7 +197,7 @@ flowchart LR
     U -- HTTPS --> MW --> APP
     APP <-- "OAuth code flow" --> G
     APP -- "Prisma (DATABASE_URL)" --> POOL --> PG
-    DEV["prisma migrate<br/>(lokal / CI)"] -- "DIRECT_URL :5432" --> PG
+    DEV["prisma migrate<br/>(lokal / build Vercel)"] -- "DIRECT_URL :5432" --> PG
 ```
 
 ### 3.2 Layered Architecture (di dalam Next.js)
@@ -368,7 +368,7 @@ Bottom navigation (mobile): **Beranda · Lapor · Statistik · Riwayat** (+ **Ad
 | Migration | `scripts/vercel-build.mjs`: `prisma migrate deploy` + seed idempotent **hanya** saat `VERCEL_ENV=production`. Build Preview tidak menyentuh schema. |
 | Koneksi | Runtime: Transaction pooler 6543 (`pgbouncer=true&connection_limit=5`). Migration: Session pooler 5432 (Direct connection Supabase Free hanya IPv6). |
 | Auth di Vercel | `AUTH_URL` tidak di-set (host terdeteksi otomatis). `AUTH_SECRET` production berbeda dari lokal. Cookie otomatis `__Secure-`/`Secure` di HTTPS. |
-| CI | GitHub Actions: lint, typecheck, Prettier, unit test, build dengan env placeholder (build tidak butuh DB). Integration/E2E dijalankan lokal terhadap DB dev. |
+| Quality gate | **Pre-push hook lokal** (`.githooks/pre-push` → `npm run verify`: lint, typecheck, Prettier, unit test). Push dibatalkan kalau gagal. Diaktifkan otomatis oleh `npm install` (`prepare`), no-op di Vercel. Build Vercel mengulang lint + typecheck. Integration/E2E (butuh DB dev) dijalankan lokal dengan `npm run test:all`. GitHub Actions sengaja tidak dipakai (akun terkena pembatasan billing Actions; hook memberi jaminan yang sama tanpa biaya). |
 | Verifikasi | `npm run smoke -- <url>`: 20 cek read-only (redirect, 401, header keamanan, cookie Secure, callback OAuth, aset PWA). |
 
 ## 5. Folder Structure

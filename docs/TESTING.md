@@ -36,7 +36,10 @@ npm run test:integration # integration ke DATABASE_URL
 npm run test:e2e         # build production ke .next-e2e, jalankan di :3100, uji (±5 menit)
 npm run test:e2e:report  # buka laporan HTML Playwright terakhir
 npm run test:all         # lint + typecheck + semua test
+npm run verify           # yang dijalankan otomatis oleh pre-push hook (±15 detik)
 ```
+
+- **Pre-push hook:** setiap `git push` menjalankan `npm run verify`. Push dibatalkan kalau ada yang gagal. Hanya untuk darurat: `git push --no-verify`.
 
 - E2E **tidak mengganggu** `npm run dev` (port 3000). Dist dir dan port-nya terpisah.
 - Untuk menguji server yang sudah berjalan: `E2E_BASE_URL=http://localhost:3000 npm run test:e2e`.

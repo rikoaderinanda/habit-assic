@@ -52,7 +52,7 @@ Di komputer lokal: Node.js ≥ 20.9, Git, dan project ini yang sudah lolos `npm 
    git push -u origin main
    ```
 
-3. Buka tab **Actions** di GitHub. Workflow **CI** (lint, typecheck, unit test, build) akan berjalan dan harus hijau.
+3. `git push` otomatis menjalankan **pre-push hook** (lint, typecheck, format, 50 unit test, ± 15 detik). Kalau ada yang gagal, push dibatalkan dan error ditampilkan. Hook aktif otomatis setelah `npm install` (`scripts/install-hooks.mjs`). Project ini tidak memakai GitHub Actions.
 
 > ⚠️ Pastikan `.env` tidak pernah masuk git. `git check-ignore .env` harus mencetak `.env`.
 
@@ -196,7 +196,7 @@ Menambah admin berikutnya: login sebagai admin → **Anggota** → buka anggota 
 git push                    # ke main → Vercel otomatis deploy Production
 ```
 
-Setiap push ke `main` menjalankan CI di GitHub dan deploy di Vercel. Deploy Production menerapkan migration baru secara otomatis.
+Setiap push menjalankan pre-push hook di komputer Anda, lalu Vercel otomatis build & deploy. `next build` di Vercel menjalankan lint + typecheck lagi; kalau gagal, deploy dibatalkan dan versi lama tetap berjalan. Deploy Production menerapkan migration baru secara otomatis. Sebelum rilis besar, jalankan juga `npm run test:all` (integration + E2E).
 
 ### Mengubah struktur database
 
