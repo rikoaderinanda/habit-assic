@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Subuh Tracker
 
-## Getting Started
+Aplikasi web mobile-first untuk monitoring program **Shalat Subuh Berjamaah** anggota asrama.
+Dirancang sebagai *program management system* agar program lain (Tahajud, Puasa, Tilawah, dll.) bisa ditambahkan tanpa mengubah skema.
 
-First, run the development server:
+**Stack:** Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · shadcn/ui · Recharts · React Hook Form + Zod · Prisma 6 · PostgreSQL (Supabase) · Auth.js v5 (Google OAuth) · Vercel
+
+Arsitektur, ERD, dan aturan bisnis: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · Pengujian: [docs/TESTING.md](docs/TESTING.md) · Deploy: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Menjalankan secara lokal
+
+Prasyarat: Node.js ≥ 20.9 (disarankan 24), npm.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install            # juga menjalankan `prisma generate`
+cp .env.example .env   # isi nilainya (lihat komentar di file)
+npm run dev            # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | Fungsi |
+|---|---|
+| `npm run dev` | Dev server (Turbopack) |
+| `npm run build` | `prisma generate` + production build |
+| `npm run start` | Menjalankan hasil build |
+| `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
+| `npm run format` | Prettier |
+| `npm test` | Vitest: unit + integration (butuh `DATABASE_URL`) |
+| `npm run test:unit` | Unit test saja (tanpa database) |
+| `npm run test:e2e` | Playwright E2E: build production di `:3100`, mobile + desktop |
+| `npm run test:all` | Lint + typecheck + semua test |
+| `npm run db:migrate` | Membuat & menerapkan migration (dev) |
+| `npm run db:deploy` | Menerapkan migration (production) |
+| `npm run db:seed` | Seed data master (program) |
+| `npm run db:studio` | Prisma Studio |
+| `npm run vercel-build` | Build Vercel (migration + seed hanya saat `VERCEL_ENV=production`) |
+| `npm run smoke -- <url>` | Smoke test pasca-deploy (read-only) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploy
 
-## Learn More
+Vercel (region `sin1`) + Supabase (Singapura). Setiap push ke `main`: CI GitHub Actions (lint, typecheck, unit test, build) lalu deploy Vercel, dengan migration otomatis di Production. Langkah lengkap: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-To learn more about Next.js, take a look at the following resources:
+## Status
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [x] Phase 1 — Analysis & Architecture
+- [x] Phase 2 — Project Setup
+- [x] Phase 3 — Database
+- [x] Phase 4 — Authentication
+- [x] Phase 5 — User Feature
+- [x] Phase 6 — Admin Feature
+- [x] Phase 7 — UI Polish
+- [x] Phase 8 — Testing
+- [x] Phase 9 — Deployment
+- [ ] Phase 10 — Final Delivery

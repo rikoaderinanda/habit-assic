@@ -1,0 +1,144 @@
+// Subuh Tracker — Prisma schema
+// Design: docs/ARCHITECTURE.md §2 (generic Program Management System).
+// Tables/columns are snake_case in PostgreSQL, camelCase in TypeScript.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Supabase transaction pooler (port 6543) — used by the app at runtime.
+  url       = env("DATABASE_URL")
+  // Supabase direct / session connection (port 5432) — used by prisma migrate.
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+/// Extend with new values (e.g. HADIR, TIDAK_HADIR) when adding programs that need them.
+enum ActivityStatus {
+  JAMAAH
+  SENDIRI
+}
+
+enum LogAction {
+  LOGIN
+  SUBMIT_ACTIVITY
+  EXPORT_CSV
+  PROGRAM_CREATE
+  PROGRAM_UPDATE
+  ROLE_CHANGE
+  USER_STATUS_CHANGE
+}
+
+// ─── Identity (Auth.js) ─────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified") @db.Timestamptz(3)
+  image         String?
+  role          Role      @default(USER)
+  /// Inactive members (e.g. left the dormitory) are excluded from monitoring and cannot sign in.
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  accounts   Account[]
+  activities Activity[]
+  logs       Log[]
+
+  @@index([isActive, role])
+  @@map("users")
+}
+
+/// OAuth account link required by @auth/prisma-adapter.
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+// ─── Program management ─────────────────────────────────────────────────────
+
+model Program {
+  id          String    @id @default(uuid()) @db.Uuid
+  /// Stable identifier used in URLs, e.g. "subuh-berjamaah".
+  slug        String    @unique @db.VarChar(64)
+  name        String    @db.VarChar(100)
+  description String?   @db.VarChar(500)
+  active      Boolean   @default(true)
+  /// Optional window; statistics never count days outside it.
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  activities Activity[]
+
+  @@index([active])
+  @@map("programs")
+}
+
+model Activity {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  programId String         @map("program_id") @db.Uuid
+  /// Calendar day in APP_TIMEZONE, computed on the server (never from the client).
+  date      DateTime       @db.Date
+  status    ActivityStatus
+  notes     String?        @db.VarChar(500)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Restrict: a program with history must be deactivated, not deleted.
+  program Program @relation(fields: [programId], references: [id], onDelete: Restrict)
+
+  /// Core rule: one report per user, per program, per day.
+  /// Also serves user history/stats queries (userId, programId, date range).
+  @@unique([userId, programId, date])
+  /// Admin queries: who reported today / monthly aggregates per program.
+  @@index([programId, date])
+  @@map("activities")
+}
+
+// ─── Audit ──────────────────────────────────────────────────────────────────
+
+model Log {
+  id        String    @id @default(uuid()) @db.Uuid
+  /// SET NULL keeps the audit trail when a user is deleted.
+  userId    String?   @map("user_id") @db.Uuid
+  action    LogAction
+  metadata  Json?
+  ipAddress String?   @map("ip_address") @db.VarChar(45)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("logs")
+}
