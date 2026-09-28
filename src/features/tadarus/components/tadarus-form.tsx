@@ -69,7 +69,10 @@ function SurahSelect({
         aria-invalid={invalid}
         className="h-11 w-full min-w-0 rounded-xl bg-background text-left"
       >
-        <SelectValue placeholder="Pilih surah" />
+        {/* Only the name in the trigger: the item's number and ayah count don't fit on phones. */}
+        <SelectValue placeholder="Pilih surah">
+          {value ? getSurah(value)?.name : undefined}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent position="popper" className="max-h-72">
         {SURAHS.map((s) => (
@@ -180,7 +183,7 @@ export function TadarusForm({ programId, start, continuedFrom }: Props) {
           </span>
           Mulai dari
         </p>
-        <div className="grid grid-cols-[1fr_6.5rem] gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
           <Controller
             control={form.control}
             name="surahFrom"
@@ -238,7 +241,7 @@ export function TadarusForm({ programId, start, continuedFrom }: Props) {
           </span>
           Sampai
         </p>
-        <div className="grid grid-cols-[1fr_6.5rem] gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
           <Controller
             control={form.control}
             name="surahTo"

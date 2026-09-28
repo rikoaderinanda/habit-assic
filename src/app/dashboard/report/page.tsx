@@ -57,7 +57,7 @@ export default async function ReportIndexPage() {
                         )}
                       </span>
                       {program.description && (
-                        <span className="block truncate text-sm text-muted-foreground">
+                        <span className="mt-0.5 line-clamp-2 text-sm text-pretty text-muted-foreground">
                           {program.description}
                         </span>
                       )}
