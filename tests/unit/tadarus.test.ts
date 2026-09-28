@@ -85,9 +85,42 @@ describe("quran data", () => {
     const p = computeTadarusProgress([r(1, 1, 1, 7), r(2, 1, 2, 141)]);
     expect(p).toMatchObject({ totalAyahs: 148, position: { surah: 2, ayah: 141 }, percent: 2.4 });
     expect(p.next).toEqual({ surah: 2, ayah: 142 });
-    const done = computeTadarusProgress([r(78, 1, 114, 6)]);
-    expect(done).toMatchObject({ khatam: 1, percent: 0, next: { surah: 1, ayah: 1 } });
     expect(sumAyahs([r(2, 1, 2, 10), { surahFrom: null }])).toBe(10);
+  });
+
+  it("fills the Qur'an bar where the ayahs were read, in any order", () => {
+    // Al-'Alaq 1–5 first: only that place of the mushaf is filled.
+    const alaq = computeTadarusProgress([r(96, 1, 96, 5)]);
+    const alaqStart = ayahIndex({ surah: 96, ayah: 1 });
+    expect(alaq).toMatchObject({ covered: 5, percent: 0.1, khatam: 0 });
+    expect(alaq.ranges).toEqual([{ from: alaqStart, to: alaqStart + 4 }]);
+    expect(alaq.current).toEqual({ surah: 96, covered: 5, ayahRanges: [{ from: 1, to: 5 }] });
+
+    // Re-reading doesn't count twice; gaps stay visible per surah.
+    const gaps = computeTadarusProgress([r(96, 1, 96, 5), r(96, 3, 96, 8), r(96, 12, 96, 12)]);
+    expect(gaps.covered).toBe(9);
+    expect(gaps.totalAyahs).toBe(12);
+    expect(gaps.current?.ayahRanges).toEqual([
+      { from: 1, to: 8 },
+      { from: 12, to: 12 },
+    ]);
+
+    // Readings merge into one run across a surah boundary.
+    expect(computeTadarusProgress([r(1, 1, 1, 7), r(2, 1, 2, 5)]).ranges).toEqual([
+      { from: 1, to: 12 },
+    ]);
+  });
+
+  it("completes a khatam only when every ayah has been read", () => {
+    const juz30 = computeTadarusProgress([r(78, 1, 114, 6)]);
+    expect(juz30).toMatchObject({ khatam: 0, next: { surah: 1, ayah: 1 } });
+
+    const all = computeTadarusProgress([r(78, 1, 114, 6), r(1, 1, 77, 50)]);
+    expect(all).toMatchObject({ khatam: 1, covered: TOTAL_AYAHS, percent: 100 });
+
+    // The next reading starts a new khatam.
+    const again = computeTadarusProgress([r(78, 1, 114, 6), r(1, 1, 77, 50), r(1, 1, 1, 7)]);
+    expect(again).toMatchObject({ khatam: 1, covered: 7, ranges: [{ from: 1, to: 7 }] });
   });
 });
 

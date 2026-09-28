@@ -1,4 +1,4 @@
-import { BookOpen, BookOpenCheck, CalendarClock, ChevronRight } from "lucide-react";
+import { BookOpen, BookOpenCheck, CalendarClock } from "lucide-react";
 import Link from "next/link";
 
 import { IslamicPattern } from "@/components/shared/islamic-pattern";
@@ -9,6 +9,8 @@ import type { ActivityRecord } from "@/server/services/activity.service";
 import type { ProgramSummary } from "@/server/services/program.service";
 
 import type { TadarusProgress } from "../lib/progress";
+
+import { QuranProgress } from "./quran-progress";
 import { formatAyah, formatReading, readingLength, toReading } from "../lib/quran";
 
 function relativeDay(day: Date, today: Date): string {
@@ -108,32 +110,11 @@ export function TadarusHomeCard({
           </div>
         )}
 
-        <Link
+        <QuranProgress
+          progress={progress}
           href={`/dashboard/stats?program=${program.slug}`}
-          className="group block rounded-xl border px-4 py-3 transition-colors hover:border-primary/40"
-        >
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="font-medium">Menuju khatam</span>
-            <span className="flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums">
-              {progress.percent.toLocaleString("id-ID")}%
-              <ChevronRight
-                className="size-4 transition-transform group-hover:translate-x-0.5"
-                aria-hidden
-              />
-            </span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-chart-1 to-chart-5"
-              style={{ width: `${progress.percent}%` }}
-            />
-          </div>
-          <p className="mt-1.5 truncate text-xs text-muted-foreground">
-            {progress.position
-              ? `Terakhir sampai ${formatAyah(progress.position)} · ${progress.totalAyahs.toLocaleString("id-ID")} ayat dibaca`
-              : "Belum ada bacaan tercatat"}
-          </p>
-        </Link>
+          className="rounded-xl shadow-none"
+        />
       </div>
     </section>
   );

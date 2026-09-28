@@ -264,8 +264,3 @@ export function toReading(a: {
   }
   return { surahFrom: a.surahFrom, ayahFrom: a.ayahFrom, surahTo: a.surahTo, ayahTo: a.ayahTo };
 }
-
-/** Share of the mushaf completed when the latest reading ended at `end`, 0–100 (one decimal). */
-export function khatamProgress(end: AyahRef): number {
-  return Math.round((ayahIndex(end) / TOTAL_AYAHS) * 1000) / 10;
-}

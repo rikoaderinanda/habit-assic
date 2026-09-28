@@ -1,16 +1,17 @@
-import { BookOpen, CalendarDays, Trophy } from "lucide-react";
+import { BookOpen, CalendarDays } from "lucide-react";
 
 import { ProgressRing } from "@/components/shared/progress-ring";
 import { StatTile } from "@/components/shared/stat-tile";
 import type { MonthlyStats } from "@/features/attendance/lib/stats";
 import { cn } from "@/lib/utils";
 
-import { formatAyah, juzOf } from "../lib/quran";
 import type { TadarusProgress } from "../lib/progress";
+
+import { QuranProgress } from "./quran-progress";
 
 const number = (n: number) => n.toLocaleString("id-ID");
 
-/** Tadarus month summary: attendance ring + session tiles + khatam progress. */
+/** Tadarus month summary: attendance ring + session tiles + the Qur'an progress bar. */
 export function TadarusSummary({
   stats,
   monthAyahs,
@@ -49,43 +50,7 @@ export function TadarusSummary({
         </div>
       </div>
 
-      <section aria-labelledby="menuju-khatam" className="rounded-2xl border bg-card p-5 shadow-xs">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 id="menuju-khatam" className="text-base font-semibold">
-              Menuju khatam
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {progress.position
-                ? `Posisi terakhir: ${formatAyah(progress.position)} · Juz ${juzOf(progress.position)}`
-                : "Belum ada bacaan. Mulai dari Al-Fatihah, bismillah."}
-            </p>
-          </div>
-          {progress.khatam > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-chart-2/15 px-3 py-1 text-xs font-semibold text-warning-foreground">
-              <Trophy className="size-3.5" aria-hidden />
-              {progress.khatam}× khatam
-            </span>
-          )}
-        </div>
-        <div
-          role="progressbar"
-          aria-label="Progres menuju khatam"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progress.percent}
-          className="mt-4 h-3 overflow-hidden rounded-full bg-muted"
-        >
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-chart-1 to-chart-5 transition-[width] duration-700 motion-reduce:transition-none"
-            style={{ width: `${progress.percent}%` }}
-          />
-        </div>
-        <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
-          <span>{progress.percent.toLocaleString("id-ID")}% dari 30 juz</span>
-          <span>{number(progress.totalAyahs)} ayat total</span>
-        </div>
-      </section>
+      <QuranProgress progress={progress} size="lg" />
     </div>
   );
 }
