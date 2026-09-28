@@ -6,6 +6,8 @@ import type { ActivityStatus, Role } from "@prisma/client";
 import { z } from "zod";
 
 import { computeMonthlyStats } from "@/features/attendance/lib/stats";
+import { isScheduledOn } from "@/features/programs/lib/program-window";
+import { sumAyahs } from "@/features/tadarus/lib/progress";
 import { addDays, toDateKey, toDateOnlyInTz, type MonthRef } from "@/lib/date";
 
 export type MemberInfo = {
@@ -18,13 +20,30 @@ export type MemberInfo = {
   createdAt: Date;
 };
 
-export type MemberActivity = { userId: string; date: Date; status: ActivityStatus };
+export type MemberActivity = {
+  userId: string;
+  date: Date;
+  status: ActivityStatus;
+  surahFrom?: number | null;
+  ayahFrom?: number | null;
+  surahTo?: number | null;
+  ayahTo?: number | null;
+};
 
-export type ProgramBounds = { startDate: Date | null; endDate: Date | null };
+export type ProgramBounds = {
+  startDate: Date | null;
+  endDate: Date | null;
+  /** ISO weekdays; empty = every day. */
+  scheduleDays: number[];
+};
 
 export type MonitoringRow = MemberInfo & {
   jamaah: number;
   sendiri: number;
+  /** Tadarus sessions attended. */
+  hadir: number;
+  /** Tadarus: ayahs read in the month. */
+  ayat: number;
   missed: number;
   totalInput: number;
   effectiveDays: number;
@@ -54,14 +73,17 @@ export function buildMonitoringRows(input: {
       bounds: {
         notBefore: [toDateOnlyInTz(member.createdAt, input.timeZone), input.program.startDate],
         notAfter: [input.program.endDate],
+        scheduleDays: input.program.scheduleDays,
       },
     });
     return {
       ...member,
       jamaah: stats.jamaah,
       sendiri: stats.sendiri,
+      hadir: stats.hadir,
+      ayat: sumAyahs(byUser.get(member.id) ?? []),
       missed: stats.missed,
-      totalInput: stats.jamaah + stats.sendiri,
+      totalInput: stats.jamaah + stats.sendiri + stats.hadir,
       effectiveDays: stats.effectiveDays,
       percentage: stats.percentage,
     };
@@ -70,7 +92,7 @@ export function buildMonitoringRows(input: {
 
 // ─── Query params (URL is the state: ?q=&sort=&dir=&page=&status=) ────────────
 
-export const SORT_KEYS = ["name", "input", "jamaah", "sendiri", "percentage"] as const;
+export const SORT_KEYS = ["name", "input", "jamaah", "sendiri", "ayat", "percentage"] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 export type SortDir = "asc" | "desc";
 
@@ -98,7 +120,9 @@ export function sortRows(rows: MonitoringRow[], key: SortKey, dir: SortDir): Mon
         ? row.jamaah
         : key === "sendiri"
           ? row.sendiri
-          : row.percentage;
+          : key === "ayat"
+            ? row.ayat
+            : row.percentage;
 
   return [...rows].sort((a, b) => {
     const primary =
@@ -127,13 +151,14 @@ export type DailyPoint = {
   members: number;
   jamaah: number;
   sendiri: number;
+  hadir: number;
   missed: number;
 };
 
 /**
  * Participation per day for the last `days` days (oldest first). A member
  * counts from their join day; `missed` = members − reports (today included,
- * so it reads as "belum input" for today).
+ * so it reads as "belum input" for today). Unscheduled days have no members.
  */
 export function dailyParticipation(input: {
   today: Date;
@@ -148,12 +173,14 @@ export function dailyParticipation(input: {
     from: toDateOnlyInTz(m.createdAt, input.timeZone).getTime(),
   }));
   const memberIds = new Set(joined.map((m) => m.id));
-  const counts = new Map<string, { jamaah: number; sendiri: number }>();
+  const empty = { jamaah: 0, sendiri: 0, hadir: 0 };
+  const counts = new Map<string, typeof empty>();
   for (const a of input.activities) {
     if (!memberIds.has(a.userId)) continue;
     const key = toDateKey(a.date);
-    const c = counts.get(key) ?? { jamaah: 0, sendiri: 0 };
+    const c = counts.get(key) ?? { ...empty };
     if (a.status === "JAMAAH") c.jamaah++;
+    else if (a.status === "HADIR") c.hadir++;
     else c.sendiri++;
     counts.set(key, c);
   }
@@ -164,17 +191,19 @@ export function dailyParticipation(input: {
     const t = date.getTime();
     const inProgram =
       (!input.program.startDate || t >= input.program.startDate.getTime()) &&
-      (!input.program.endDate || t <= input.program.endDate.getTime());
+      (!input.program.endDate || t <= input.program.endDate.getTime()) &&
+      isScheduledOn(input.program, date);
     const members = inProgram ? joined.filter((m) => m.from <= t).length : 0;
     const key = toDateKey(date);
-    const { jamaah, sendiri } = counts.get(key) ?? { jamaah: 0, sendiri: 0 };
+    const { jamaah, sendiri, hadir } = counts.get(key) ?? empty;
     points.push({
       key,
       date,
       members,
       jamaah,
       sendiri,
-      missed: Math.max(0, members - jamaah - sendiri),
+      hadir,
+      missed: Math.max(0, members - jamaah - sendiri - hadir),
     });
   }
   return points;

@@ -47,28 +47,50 @@ export async function GET(request: NextRequest) {
     query.dir,
   );
 
-  const csv = toCsv([
-    [
-      "Nama",
-      "Email",
-      "Jumlah Jamaah",
-      "Jumlah Sendiri",
-      "Belum Isi",
-      "Total Input",
-      "Hari Terhitung",
-      "Persentase (%)",
-    ],
-    ...rows.map((r) => [
-      r.name ?? "",
-      r.email,
-      r.jamaah,
-      r.sendiri,
-      r.missed,
-      r.totalInput,
-      r.effectiveDays,
-      r.percentage,
-    ]),
-  ]);
+  const csv =
+    program.kind === "TADARUS"
+      ? toCsv([
+          [
+            "Nama",
+            "Email",
+            "Sesi Hadir",
+            "Belum Isi",
+            "Sesi Terjadwal",
+            "Jumlah Ayat",
+            "Persentase Kehadiran (%)",
+          ],
+          ...rows.map((r) => [
+            r.name ?? "",
+            r.email,
+            r.hadir,
+            r.missed,
+            r.effectiveDays,
+            r.ayat,
+            r.percentage,
+          ]),
+        ])
+      : toCsv([
+          [
+            "Nama",
+            "Email",
+            "Jumlah Jamaah",
+            "Jumlah Sendiri",
+            "Belum Isi",
+            "Total Input",
+            "Hari Terhitung",
+            "Persentase (%)",
+          ],
+          ...rows.map((r) => [
+            r.name ?? "",
+            r.email,
+            r.jamaah,
+            r.sendiri,
+            r.missed,
+            r.totalInput,
+            r.effectiveDays,
+            r.percentage,
+          ]),
+        ]);
 
   const monthKey = toMonthKey(month);
   await logAction("EXPORT_CSV", admin.id, {

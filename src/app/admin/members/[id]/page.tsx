@@ -12,11 +12,13 @@ import { MonthCalendar } from "@/features/attendance/components/month-calendar";
 import { MonthSummary } from "@/features/attendance/components/month-summary";
 import { ProgramTabs } from "@/features/attendance/components/program-tabs";
 import { firstParam, resolveMonth, type SearchParams } from "@/features/attendance/lib/page-params";
+import { TadarusSummary } from "@/features/tadarus/components/tadarus-summary";
+import { computeTadarusProgress, sumAyahs } from "@/features/tadarus/lib/progress";
 import { MemberControls } from "@/features/users/components/member-controls";
 import { resolveAdminView } from "@/features/users/lib/admin-view";
 import { formatDate, formatMonth, monthOf, toDateOnlyInTz, toMonthKey } from "@/lib/date";
 import { requireAdmin } from "@/server/guards";
-import { getMemberMonthlyStats } from "@/server/services/activity.service";
+import { getMemberMonthlyStats, listReadings } from "@/server/services/activity.service";
 import { getMemberById } from "@/server/services/member.service";
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> };
@@ -44,12 +46,14 @@ export default async function MemberDetailPage({ params, searchParams }: Props) 
   const monthKey = toMonthKey(month);
   const displayName = member.name ?? member.email;
 
-  const detail = program
-    ? await getMemberMonthlyStats({ user: member, program, month, today })
-    : null;
+  const isTadarus = program?.kind === "TADARUS";
+  const [detail, readings] = await Promise.all([
+    program ? getMemberMonthlyStats({ user: member, program, month, today }) : null,
+    program && isTadarus ? listReadings(member.id, program.id) : [],
+  ]);
   const days =
     detail?.stats.days
-      .filter((d) => ["JAMAAH", "SENDIRI", "MISSED", "PENDING"].includes(d.state))
+      .filter((d) => ["JAMAAH", "SENDIRI", "HADIR", "MISSED", "PENDING"].includes(d.state))
       .reverse() ?? [];
 
   return (
@@ -117,7 +121,16 @@ export default async function MemberDetailPage({ params, searchParams }: Props) 
             hrefFor={(slug) => `/admin/members/${member.id}?program=${slug}&month=${monthKey}`}
           />
 
-          <MonthSummary stats={detail.stats} className="mb-4" />
+          {isTadarus ? (
+            <TadarusSummary
+              stats={detail.stats}
+              monthAyahs={sumAyahs(detail.activities)}
+              progress={computeTadarusProgress(readings)}
+              className="mb-4"
+            />
+          ) : (
+            <MonthSummary stats={detail.stats} className="mb-4" />
+          )}
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,24rem)_1fr]">
             <section
@@ -127,7 +140,7 @@ export default async function MemberDetailPage({ params, searchParams }: Props) 
               <h3 id="kalender" className="mb-4 text-base font-semibold">
                 Kalender
               </h3>
-              <MonthCalendar stats={detail.stats} />
+              <MonthCalendar stats={detail.stats} kind={program.kind} />
             </section>
             <section aria-labelledby="riwayat">
               <h3 id="riwayat" className="mb-3 text-base font-semibold">

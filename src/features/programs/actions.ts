@@ -14,7 +14,8 @@ import {
 
 import { createProgramSchema, updateProgramSchema } from "./schemas";
 
-type ProgramField = "name" | "slug" | "description" | "startDate" | "endDate";
+type ProgramField =
+  "name" | "slug" | "kind" | "description" | "scheduleDays" | "startDate" | "endDate";
 
 async function adminOrError() {
   try {

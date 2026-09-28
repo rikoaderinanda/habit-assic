@@ -2,6 +2,8 @@ import "server-only";
 
 import type { Prisma, Role } from "@prisma/client";
 
+import { lastScheduledDay, nextOpenDay } from "@/features/programs/lib/program-window";
+import { readingLength, toReading, type Reading } from "@/features/tadarus/lib/quran";
 import {
   buildMonitoringRows,
   dailyParticipation,
@@ -9,7 +11,7 @@ import {
   type MemberInfo,
   type MonitoringRow,
 } from "@/features/users/lib/monitoring";
-import { addDays, monthRange, type MonthRef } from "@/lib/date";
+import { addDays, monthRange, toDateOnlyInTz, type MonthRef } from "@/lib/date";
 import { prisma } from "@/lib/prisma/client";
 import { logAction } from "@/server/audit";
 
@@ -61,7 +63,15 @@ export async function getMonitoringRows(input: {
       date: { gte: start, lt: end },
       userId: { in: members.map((m) => m.id) },
     },
-    select: { userId: true, date: true, status: true },
+    select: {
+      userId: true,
+      date: true,
+      status: true,
+      surahFrom: true,
+      ayahFrom: true,
+      surahTo: true,
+      ayahTo: true,
+    },
   });
 
   return buildMonitoringRows({
@@ -118,6 +128,118 @@ export async function getTodayOverview(
     sendiri: reportedToday.size - jamaah,
     pendingMembers,
     trend: dailyParticipation({ today, days: TREND_DAYS, members, activities, program }),
+  };
+}
+
+const byName = (a: MemberInfo, b: MemberInfo) =>
+  (a.name ?? a.email).localeCompare(b.name ?? b.email, "id-ID");
+
+export type SessionReport = MemberInfo & {
+  reading: Reading | null;
+  notes: string | null;
+  reportedAt: Date;
+};
+
+export type SessionPoint = { date: Date; members: number; hadir: number; ayat: number };
+
+export type TadarusSessionOverview = {
+  /** Latest scheduled day on or before today, or null when there has been none. */
+  session: Date | null;
+  /** Next scheduled day after today (while the program is open). */
+  nextSession: Date | null;
+  /** Active members who had joined by the session. */
+  totalMembers: number;
+  reported: SessionReport[];
+  pendingMembers: MemberInfo[];
+  totalAyahs: number;
+  /** Up to the last 8 sessions, oldest first. */
+  recent: SessionPoint[];
+};
+
+/** Admin dashboard for Tadarus: the latest session (who read what) + recent sessions. */
+export async function getTadarusSessionOverview(
+  program: ProgramSummary,
+  today: Date,
+): Promise<TadarusSessionOverview> {
+  const RECENT = 8;
+  const sessions: Date[] = [];
+  for (let cursor = today; sessions.length < RECENT;) {
+    const day = lastScheduledDay(program, cursor);
+    if (!day) break;
+    sessions.push(day);
+    cursor = addDays(day, -1);
+  }
+  const session = sessions[0] ?? null;
+  const nextSession = nextOpenDay(program, addDays(today, 1));
+
+  const [members, activities] = await Promise.all([
+    prisma.user.findMany({ where: { isActive: true }, select: memberSelect }),
+    sessions.length > 0
+      ? prisma.activity.findMany({
+          where: { programId: program.id, date: { in: sessions }, user: { isActive: true } },
+          select: {
+            userId: true,
+            date: true,
+            notes: true,
+            createdAt: true,
+            surahFrom: true,
+            ayahFrom: true,
+            surahTo: true,
+            ayahTo: true,
+          },
+        })
+      : [],
+  ]);
+
+  const joined = new Map(members.map((m) => [m.id, toDateOnlyInTz(m.createdAt).getTime()]));
+  const eligible = (day: Date) => members.filter((m) => joined.get(m.id)! <= day.getTime());
+
+  const recent = sessions
+    .map((day): SessionPoint => {
+      const rows = activities.filter((a) => a.date.getTime() === day.getTime());
+      const readings = rows.map(toReading).filter((r): r is Reading => r !== null);
+      return {
+        date: day,
+        members: eligible(day).length,
+        hadir: rows.length,
+        ayat: readings.reduce((sum, r) => sum + readingLength(r), 0),
+      };
+    })
+    .reverse();
+
+  if (!session) {
+    return {
+      session,
+      nextSession,
+      totalMembers: 0,
+      reported: [],
+      pendingMembers: [],
+      totalAyahs: 0,
+      recent,
+    };
+  }
+
+  const inSession = new Map(
+    activities.filter((a) => a.date.getTime() === session.getTime()).map((a) => [a.userId, a]),
+  );
+  const sessionMembers = eligible(session);
+  // Anyone who reported counts, even if they joined "after" (clock skew at sign-up).
+  const reported = members
+    .filter((m) => inSession.has(m.id))
+    .map((m): SessionReport => {
+      const a = inSession.get(m.id)!;
+      return { ...m, reading: toReading(a), notes: a.notes, reportedAt: a.createdAt };
+    })
+    .sort(byName);
+
+  return {
+    session,
+    nextSession,
+    totalMembers: new Set([...sessionMembers.map((m) => m.id), ...inSession.keys()]).size,
+    reported,
+    pendingMembers: sessionMembers.filter((m) => !inSession.has(m.id)).sort(byName),
+    totalAyahs: reported.reduce((sum, r) => sum + (r.reading ? readingLength(r.reading) : 0), 0),
+    recent,
   };
 }
 

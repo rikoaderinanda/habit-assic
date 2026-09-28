@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, type ProgramKind } from "@prisma/client";
 import { cache } from "react";
 
 import type { CreateProgramInput, UpdateProgramInput } from "@/features/programs/schemas";
@@ -14,6 +14,8 @@ const programSelect = {
   name: true,
   description: true,
   active: true,
+  kind: true,
+  scheduleDays: true,
   startDate: true,
   endDate: true,
 } as const;
@@ -24,6 +26,9 @@ export type ProgramSummary = {
   name: string;
   description: string | null;
   active: boolean;
+  kind: ProgramKind;
+  /** ISO weekdays (1 = Senin … 7 = Ahad); empty = every day. */
+  scheduleDays: number[];
   startDate: Date | null;
   endDate: Date | null;
 };
@@ -76,6 +81,8 @@ export async function createProgram(
         slug: input.slug,
         name: input.name,
         description: input.description || null,
+        kind: input.kind,
+        scheduleDays: input.scheduleDays,
         startDate: toDate(input.startDate),
         endDate: toDate(input.endDate),
       },
@@ -101,6 +108,7 @@ export async function updateProgram(
       data: {
         name: input.name,
         description: input.description || null,
+        scheduleDays: input.scheduleDays,
         startDate: toDate(input.startDate),
         endDate: toDate(input.endDate),
       },

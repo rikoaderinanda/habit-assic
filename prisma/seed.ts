@@ -15,6 +15,16 @@ const PROGRAMS = [
     name: "Subuh Berjamaah",
     description: "Laporan harian pelaksanaan Shalat Subuh — berjamaah di masjid atau sendiri.",
     active: true,
+    kind: "SHALAT",
+    scheduleDays: [],
+  },
+  {
+    slug: "tadarus-quran",
+    name: "Tadarus Qur'an",
+    description: "Tadarus bersama setiap pekan. Catat surah dan ayat yang sudah Anda baca.",
+    active: true,
+    kind: "TADARUS",
+    scheduleDays: [1], // Senin — admins can change it in Kelola Program
   },
 ] as const;
 
@@ -23,7 +33,7 @@ async function main() {
     const result = await prisma.program.upsert({
       where: { slug: program.slug },
       update: {},
-      create: program,
+      create: { ...program, scheduleDays: [...program.scheduleDays] },
     });
     console.log(`✔ program "${result.name}" (${result.slug}) — active: ${result.active}`);
   }

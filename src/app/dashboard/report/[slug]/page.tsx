@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, CalendarOff, House } from "lucide-react";
+import { BarChart3, CalendarClock, CalendarDays, CalendarOff, House } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -8,10 +8,18 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { ReportForm } from "@/features/attendance/components/report-form";
 import { SubmittedCard } from "@/features/attendance/components/submitted-card";
-import { isProgramOpenOn } from "@/features/programs/lib/program-window";
-import { formatDateWithWeekday, todayInTz } from "@/lib/date";
+import {
+  isInProgramWindow,
+  isProgramOpenOn,
+  nextOpenDay,
+  scheduleLabel,
+} from "@/features/programs/lib/program-window";
+import { ReadingSubmittedCard } from "@/features/tadarus/components/reading-submitted-card";
+import { TadarusForm } from "@/features/tadarus/components/tadarus-form";
+import { formatReading, nextAyah } from "@/features/tadarus/lib/quran";
+import { addDays, formatDateWithWeekday, todayInTz } from "@/lib/date";
 import { requireUser } from "@/server/guards";
-import { getActivityOn } from "@/server/services/activity.service";
+import { getActivityOn, getLastReading } from "@/server/services/activity.service";
 import { getProgramBySlug } from "@/server/services/program.service";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -27,12 +35,19 @@ export default async function ReportPage({ params }: Props) {
   if (!program) notFound();
 
   const today = todayInTz();
-  const activity = await getActivityOn(user.id, program.id, today);
+  const isTadarus = program.kind === "TADARUS";
+  const [activity, last] = await Promise.all([
+    getActivityOn(user.id, program.id, today),
+    isTadarus ? getLastReading(user.id, program.id) : null,
+  ]);
+  // Active and in its window, just not a scheduled day (e.g. Tadarus on a Wednesday).
+  const offSchedule = program.active && isInProgramWindow(program, today);
+  const nextDay = offSchedule ? nextOpenDay(program, addDays(today, 1)) : null;
 
   return (
     <div className="mx-auto max-w-lg">
       <PageHeader
-        title={`Laporan ${program.name}`}
+        title={isTadarus ? program.name : `Laporan ${program.name}`}
         description={
           <span className="inline-flex items-center gap-1.5">
             <CalendarDays className="size-4" aria-hidden />
@@ -43,7 +58,11 @@ export default async function ReportPage({ params }: Props) {
 
       {activity ? (
         <>
-          <SubmittedCard activity={activity} />
+          {isTadarus ? (
+            <ReadingSubmittedCard activity={activity} />
+          ) : (
+            <SubmittedCard activity={activity} />
+          )}
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Button asChild variant="outline" className="h-11 rounded-xl">
               <Link href="/dashboard">
@@ -59,6 +78,32 @@ export default async function ReportPage({ params }: Props) {
             </Button>
           </div>
         </>
+      ) : !isProgramOpenOn(program, today) && offSchedule ? (
+        <EmptyState
+          icon={CalendarClock}
+          title={isTadarus ? "Hari ini tidak ada jadwal tadarus" : "Hari ini tidak ada jadwal"}
+          description={
+            <>
+              Jadwal {program.name}:{" "}
+              <span className="font-medium">{scheduleLabel(program.scheduleDays)}</span>.
+              {nextDay && (
+                <>
+                  {" "}
+                  Sesi berikutnya{" "}
+                  <span className="font-medium text-foreground">
+                    {formatDateWithWeekday(nextDay)}
+                  </span>
+                  .
+                </>
+              )}
+            </>
+          }
+          action={
+            <Button asChild variant="outline">
+              <Link href="/dashboard">Kembali ke Beranda</Link>
+            </Button>
+          }
+        />
       ) : !isProgramOpenOn(program, today) ? (
         <EmptyState
           icon={CalendarOff}
@@ -80,7 +125,19 @@ export default async function ReportPage({ params }: Props) {
             <CalendarDays className="size-4 shrink-0" aria-hidden />
             Tanggal laporan otomatis hari ini dan tidak dapat diubah.
           </div>
-          <ReportForm programId={program.id} />
+          {isTadarus ? (
+            <TadarusForm
+              programId={program.id}
+              start={last ? nextAyah(last.reading) : { surah: 1, ayah: 1 }}
+              continuedFrom={
+                last
+                  ? `${formatDateWithWeekday(last.date)} · ${formatReading(last.reading)}`
+                  : undefined
+              }
+            />
+          ) : (
+            <ReportForm programId={program.id} />
+          )}
         </div>
       )}
     </div>

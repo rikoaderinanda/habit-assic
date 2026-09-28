@@ -181,6 +181,8 @@ describe.skipIf(!hasDb)("admin services", () => {
       programs.createProgram(adminId, {
         name: "Tahajud",
         slug,
+        kind: "SHALAT",
+        scheduleDays: [],
         description: "",
         startDate: "2026-10-01",
         endDate: "",
@@ -190,6 +192,8 @@ describe.skipIf(!hasDb)("admin services", () => {
       programs.createProgram(adminId, {
         name: "Dup",
         slug,
+        kind: "SHALAT",
+        scheduleDays: [],
         description: "",
         startDate: "",
         endDate: "",
@@ -205,6 +209,7 @@ describe.skipIf(!hasDb)("admin services", () => {
         id: created.id,
         name: "Tahajud Berjamaah",
         description: "Qiyamul lail",
+        scheduleDays: [7],
         startDate: "",
         endDate: "2026-12-31",
       }),
@@ -242,7 +247,15 @@ describe("program schemas", () => {
     expect(slugify("Hafalan Qur'an Juz 30")).toBe("hafalan-qur-an-juz-30");
     expect(slugify("  Kajian Ba'da Maghrib  ")).toBe("kajian-ba-da-maghrib");
 
-    const base = { name: "Tahajud", slug: "tahajud", description: "", startDate: "", endDate: "" };
+    const base = {
+      name: "Tahajud",
+      slug: "tahajud",
+      kind: "SHALAT",
+      description: "",
+      startDate: "",
+      endDate: "",
+      scheduleDays: [],
+    };
     expect(createProgramSchema.safeParse(base).success).toBe(true);
     expect(createProgramSchema.safeParse({ ...base, slug: "Bad Slug!" }).success).toBe(false);
     expect(createProgramSchema.safeParse({ ...base, slug: "-x-" }).success).toBe(false);

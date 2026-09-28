@@ -21,10 +21,19 @@ enum Role {
   ADMIN
 }
 
-/// Extend with new values (e.g. HADIR, TIDAK_HADIR) when adding programs that need them.
+/// How members report on a program. Fixed after creation: it decides the shape of each report.
+enum ProgramKind {
+  /// Shalat berjamaah: status JAMAAH / SENDIRI.
+  SHALAT
+  /// Tadarus Qur'an: status HADIR + the passage read (surah:ayat → surah:ayat).
+  TADARUS
+}
+
+/// JAMAAH / SENDIRI for SHALAT programs, HADIR for TADARUS programs.
 enum ActivityStatus {
   JAMAAH
   SENDIRI
+  HADIR
 }
 
 enum LogAction {
@@ -84,17 +93,21 @@ model Account {
 // ─── Program management ─────────────────────────────────────────────────────
 
 model Program {
-  id          String    @id @default(uuid()) @db.Uuid
+  id           String      @id @default(uuid()) @db.Uuid
   /// Stable identifier used in URLs, e.g. "subuh-berjamaah".
-  slug        String    @unique @db.VarChar(64)
-  name        String    @db.VarChar(100)
-  description String?   @db.VarChar(500)
-  active      Boolean   @default(true)
+  slug         String      @unique @db.VarChar(64)
+  name         String      @db.VarChar(100)
+  description  String?     @db.VarChar(500)
+  active       Boolean     @default(true)
+  kind         ProgramKind @default(SHALAT)
+  /// ISO weekdays members report on (1 = Senin … 7 = Ahad). Empty = every day.
+  /// Statistics only count scheduled days.
+  scheduleDays Int[]       @default([]) @map("schedule_days")
   /// Optional window; statistics never count days outside it.
-  startDate   DateTime? @map("start_date") @db.Date
-  endDate     DateTime? @map("end_date") @db.Date
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  startDate    DateTime?   @map("start_date") @db.Date
+  endDate      DateTime?   @map("end_date") @db.Date
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   activities Activity[]
 
@@ -110,6 +123,12 @@ model Activity {
   date      DateTime       @db.Date
   status    ActivityStatus
   notes     String?        @db.VarChar(500)
+  /// TADARUS only: passage read, from surahFrom:ayahFrom through surahTo:ayahTo (inclusive).
+  /// All four are set together or all null (CHECK constraint).
+  surahFrom Int?           @map("surah_from") @db.SmallInt
+  ayahFrom  Int?           @map("ayah_from") @db.SmallInt
+  surahTo   Int?           @map("surah_to") @db.SmallInt
+  ayahTo    Int?           @map("ayah_to") @db.SmallInt
   createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 

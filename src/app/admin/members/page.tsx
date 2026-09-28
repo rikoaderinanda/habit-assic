@@ -174,6 +174,7 @@ export default async function MembersPage({
         <>
           <MonitoringTable
             rows={pageData.items}
+            kind={program.kind}
             sort={query.sort}
             dir={query.dir}
             hrefWith={hrefWith}
@@ -187,9 +188,18 @@ export default async function MembersPage({
             hrefFor={(page) => hrefWith({ page: page > 1 ? String(page) : undefined })}
           />
           <p className="mt-3 text-xs text-muted-foreground">
-            Total Input ditampilkan sebagai{" "}
-            <span className="font-medium">input/hari terhitung</span>. Persentase = berjamaah ÷ hari
-            terhitung.
+            {program.kind === "TADARUS" ? (
+              <>
+                Input ditampilkan sebagai <span className="font-medium">hadir/sesi terjadwal</span>.
+                Persentase = sesi hadir ÷ sesi terjadwal.
+              </>
+            ) : (
+              <>
+                Total Input ditampilkan sebagai{" "}
+                <span className="font-medium">input/hari terhitung</span>. Persentase = berjamaah ÷
+                hari terhitung.
+              </>
+            )}
           </p>
         </>
       )}

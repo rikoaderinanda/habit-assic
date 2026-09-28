@@ -1,3 +1,4 @@
+import type { ProgramKind } from "@prisma/client";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
@@ -11,6 +12,8 @@ import type { MonitoringRow, SortDir, SortKey } from "../lib/monitoring";
 
 type Props = {
   rows: MonitoringRow[];
+  /** TADARUS shows Hadir/Ayat columns instead of Jamaah/Sendiri. */
+  kind?: ProgramKind;
   sort: SortKey;
   dir: SortDir;
   /** Builds a URL with the given params merged into the current ones. */
@@ -81,8 +84,16 @@ function PercentageBar({ value }: { value: number }) {
   );
 }
 
-/** Nama | Total Input | Jamaah | Sendiri | Persentase — sortable via URL. */
-export function MonitoringTable({ rows, sort, dir, hrefWith, detailQuery }: Props) {
+/** Nama | Total Input | Jamaah | Sendiri | Persentase (Tadarus: … | Ayat | …) — sortable via URL. */
+export function MonitoringTable({
+  rows,
+  kind = "SHALAT",
+  sort,
+  dir,
+  hrefWith,
+  detailQuery,
+}: Props) {
+  const isTadarus = kind === "TADARUS";
   return (
     // `relative` makes this scroll box the containing block of the rows' stretched links,
     // so they are clipped with the table instead of widening the page.
@@ -99,22 +110,35 @@ export function MonitoringTable({ rows, sort, dir, hrefWith, detailQuery }: Prop
               hrefWith={hrefWith}
             />
             <SortHeader label="Input" column="input" sort={sort} dir={dir} hrefWith={hrefWith} />
-            <SortHeader
-              label="Jamaah"
-              column="jamaah"
-              sort={sort}
-              dir={dir}
-              hrefWith={hrefWith}
-              className="hidden lg:table-cell"
-            />
-            <SortHeader
-              label="Sendiri"
-              column="sendiri"
-              sort={sort}
-              dir={dir}
-              hrefWith={hrefWith}
-              className="hidden lg:table-cell"
-            />
+            {isTadarus ? (
+              <SortHeader
+                label="Ayat"
+                column="ayat"
+                sort={sort}
+                dir={dir}
+                hrefWith={hrefWith}
+                className="hidden lg:table-cell"
+              />
+            ) : (
+              <>
+                <SortHeader
+                  label="Jamaah"
+                  column="jamaah"
+                  sort={sort}
+                  dir={dir}
+                  hrefWith={hrefWith}
+                  className="hidden lg:table-cell"
+                />
+                <SortHeader
+                  label="Sendiri"
+                  column="sendiri"
+                  sort={sort}
+                  dir={dir}
+                  hrefWith={hrefWith}
+                  className="hidden lg:table-cell"
+                />
+              </>
+            )}
             <SortHeader
               label="Persentase"
               column="percentage"
@@ -150,7 +174,9 @@ export function MonitoringTable({ rows, sort, dir, hrefWith, detailQuery }: Prop
                     <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground lg:flex-nowrap lg:truncate">
                       {row.name && <span className="hidden truncate lg:inline">{row.email}</span>}
                       <span className="lg:hidden">
-                        {row.jamaah} jamaah · {row.sendiri} sendiri
+                        {isTadarus
+                          ? `${row.hadir} hadir · ${row.ayat.toLocaleString("id-ID")} ayat`
+                          : `${row.jamaah} jamaah · ${row.sendiri} sendiri`}
                       </span>
                       {row.role === "ADMIN" && (
                         <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
@@ -165,12 +191,20 @@ export function MonitoringTable({ rows, sort, dir, hrefWith, detailQuery }: Prop
                 {row.totalInput}
                 <span className="text-muted-foreground">/{row.effectiveDays}</span>
               </td>
-              <td className="hidden px-3 py-3 text-right tabular-nums lg:table-cell">
-                {row.jamaah}
-              </td>
-              <td className="hidden px-3 py-3 text-right tabular-nums lg:table-cell">
-                {row.sendiri}
-              </td>
+              {isTadarus ? (
+                <td className="hidden px-3 py-3 text-right tabular-nums lg:table-cell">
+                  {row.ayat.toLocaleString("id-ID")}
+                </td>
+              ) : (
+                <>
+                  <td className="hidden px-3 py-3 text-right tabular-nums lg:table-cell">
+                    {row.jamaah}
+                  </td>
+                  <td className="hidden px-3 py-3 text-right tabular-nums lg:table-cell">
+                    {row.sendiri}
+                  </td>
+                </>
+              )}
               <td className="px-3 py-3">
                 <PercentageBar value={row.percentage} />
               </td>

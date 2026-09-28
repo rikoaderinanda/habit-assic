@@ -1,4 +1,4 @@
-import { CircleDashed, CircleMinus, Clock, User, Users } from "lucide-react";
+import { BookOpenCheck, CircleDashed, CircleMinus, Clock, User, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -8,6 +8,10 @@ import type { DayState } from "../lib/stats";
 const STYLES: Record<DayState, { className: string; icon: typeof Users }> = {
   JAMAAH: { className: "bg-chart-1/12 text-secondary-foreground border-chart-1/25", icon: Users },
   SENDIRI: { className: "bg-chart-2/15 text-warning-foreground border-chart-2/30", icon: User },
+  HADIR: {
+    className: "bg-chart-1/12 text-secondary-foreground border-chart-1/25",
+    icon: BookOpenCheck,
+  },
   MISSED: { className: "bg-muted text-muted-foreground border-border", icon: CircleMinus },
   PENDING: {
     className: "bg-background text-muted-foreground border-dashed border-primary/40",
@@ -17,6 +21,7 @@ const STYLES: Record<DayState, { className: string; icon: typeof Users }> = {
     className: "bg-background text-muted-foreground/70 border-border",
     icon: CircleDashed,
   },
+  OFF: { className: "bg-background text-muted-foreground/70 border-border", icon: CircleDashed },
   FUTURE: { className: "bg-background text-muted-foreground/70 border-border", icon: CircleDashed },
 };
 

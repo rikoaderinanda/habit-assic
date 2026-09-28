@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma, type ActivityStatus } from "@prisma/client";
+import { Prisma, type ActivityStatus, type ProgramKind } from "@prisma/client";
 
 import {
   computeJamaahStreak,
@@ -8,6 +8,7 @@ import {
   type MonthlyStats,
 } from "@/features/attendance/lib/stats";
 import { isProgramOpenOn } from "@/features/programs/lib/program-window";
+import { toReading, type Reading } from "@/features/tadarus/lib/quran";
 import {
   addDays,
   monthRange,
@@ -25,25 +26,45 @@ export type SubmitOutcome =
   | { ok: true; status: ActivityStatus; date: string }
   | { ok: false; code: "PROGRAM_CLOSED" | "ALREADY_SUBMITTED" };
 
+const STATUSES_BY_KIND: Record<ProgramKind, ActivityStatus[]> = {
+  SHALAT: ["JAMAAH", "SENDIRI"],
+  TADARUS: ["HADIR"],
+};
+
 /**
  * Record today's report for a member (BR-1–BR-3). The date is derived from
  * `now` in APP_TIMEZONE — callers never pass a date. Uniqueness is enforced
  * by the database, so concurrent submits resolve to one row + ALREADY_SUBMITTED.
+ * The status (and reading) must match the program's kind, and today must be
+ * on its weekly schedule.
  */
 export async function submitActivityForToday(input: {
   userId: string;
   programId: string;
   status: ActivityStatus;
   notes: string | null;
+  /** Required for TADARUS programs, forbidden otherwise. */
+  reading?: Reading | null;
   now?: Date;
 }): Promise<SubmitOutcome> {
   const date = todayInTz(input.now);
 
   const program = await prisma.program.findUnique({
     where: { id: input.programId },
-    select: { slug: true, active: true, startDate: true, endDate: true },
+    select: {
+      slug: true,
+      kind: true,
+      active: true,
+      scheduleDays: true,
+      startDate: true,
+      endDate: true,
+    },
   });
   if (!program || !isProgramOpenOn(program, date)) return { ok: false, code: "PROGRAM_CLOSED" };
+  const needsReading = program.kind === "TADARUS";
+  if (!STATUSES_BY_KIND[program.kind].includes(input.status) || needsReading !== !!input.reading) {
+    return { ok: false, code: "PROGRAM_CLOSED" };
+  }
 
   try {
     await prisma.activity.create({
@@ -53,6 +74,7 @@ export async function submitActivityForToday(input: {
         date,
         status: input.status,
         notes: input.notes,
+        ...input.reading,
       },
     });
   } catch (error) {
@@ -67,6 +89,7 @@ export async function submitActivityForToday(input: {
     program: program.slug,
     date: toDateKey(date),
     status: input.status,
+    ...(input.reading && { reading: input.reading }),
   });
   return { ok: true, status: input.status, date: toDateKey(date) };
 }
@@ -77,6 +100,10 @@ export type ActivityRecord = {
   status: ActivityStatus;
   notes: string | null;
   createdAt: Date;
+  surahFrom: number | null;
+  ayahFrom: number | null;
+  surahTo: number | null;
+  ayahTo: number | null;
 };
 
 const activitySelect = {
@@ -85,6 +112,10 @@ const activitySelect = {
   status: true,
   notes: true,
   createdAt: true,
+  surahFrom: true,
+  ayahFrom: true,
+  surahTo: true,
+  ayahTo: true,
 } as const;
 
 export function getActivityOn(
@@ -126,9 +157,34 @@ export async function getMemberMonthlyStats(input: {
     bounds: {
       notBefore: [toDateOnlyInTz(input.user.createdAt), input.program.startDate],
       notAfter: [input.program.endDate],
+      scheduleDays: input.program.scheduleDays,
     },
   });
   return { stats, activities };
+}
+
+/** The member's most recent Tadarus reading in a program (where to continue from). */
+export async function getLastReading(
+  userId: string,
+  programId: string,
+): Promise<{ date: Date; reading: Reading } | null> {
+  const last = await prisma.activity.findFirst({
+    where: { userId, programId, surahFrom: { not: null } },
+    orderBy: { date: "desc" },
+    select: { date: true, surahFrom: true, ayahFrom: true, surahTo: true, ayahTo: true },
+  });
+  const reading = last && toReading(last);
+  return reading ? { date: last.date, reading } : null;
+}
+
+/** Every reading a member has reported in a program, oldest first (for lifetime totals). */
+export async function listReadings(userId: string, programId: string): Promise<Reading[]> {
+  const rows = await prisma.activity.findMany({
+    where: { userId, programId, surahFrom: { not: null } },
+    orderBy: { date: "asc" },
+    select: { surahFrom: true, ayahFrom: true, surahTo: true, ayahTo: true },
+  });
+  return rows.map(toReading).filter((r): r is Reading => r !== null);
 }
 
 /** Current consecutive-JAMAAH streak (looks back up to one year). */

@@ -16,13 +16,23 @@ import { UserAvatar } from "@/components/shared/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/features/attendance/components/status-badge";
-import { isProgramOpenOn } from "@/features/programs/lib/program-window";
-import { formatDateWithWeekday, formatMonth, formatTimeInTz, monthOf, todayInTz } from "@/lib/date";
+import { isProgramOpenOn, nextOpenDay } from "@/features/programs/lib/program-window";
+import { TadarusHomeCard } from "@/features/tadarus/components/tadarus-home-card";
+import { computeTadarusProgress } from "@/features/tadarus/lib/progress";
+import {
+  addDays,
+  formatDateWithWeekday,
+  formatMonth,
+  formatTimeInTz,
+  monthOf,
+  todayInTz,
+} from "@/lib/date";
 import { requireUser } from "@/server/guards";
 import {
   getActivityOn,
   getJamaahStreak,
   getMemberMonthlyStats,
+  listReadings,
 } from "@/server/services/activity.service";
 import { listActivePrograms, type ProgramSummary } from "@/server/services/program.service";
 
@@ -39,7 +49,8 @@ export default async function DashboardPage() {
   const today = todayInTz();
   const month = monthOf(today);
   const programs = await listActivePrograms();
-  const [primary, ...others] = programs;
+  const [primary, ...others] = programs.filter((p) => p.kind === "SHALAT");
+  const tadarusPrograms = programs.filter((p) => p.kind === "TADARUS");
   const firstName = (user.name ?? user.email).split(" ")[0];
 
   const greeting = (
@@ -66,7 +77,7 @@ export default async function DashboardPage() {
     </section>
   );
 
-  if (!primary) {
+  if (programs.length === 0) {
     return (
       <>
         {greeting}
@@ -75,6 +86,39 @@ export default async function DashboardPage() {
           title="Belum ada program aktif"
           description="Pengurus asrama belum membuka program. Silakan cek kembali nanti."
         />
+      </>
+    );
+  }
+
+  const tadarusCards = await Promise.all(
+    tadarusPrograms.map(async (program) => {
+      const [todayActivity, readings] = await Promise.all([
+        getActivityOn(user.id, program.id, today),
+        listReadings(user.id, program.id),
+      ]);
+      const isOpenToday = isProgramOpenOn(program, today);
+      return (
+        <TadarusHomeCard
+          key={program.id}
+          program={program}
+          today={today}
+          isOpenToday={isOpenToday}
+          nextSession={isOpenToday ? today : nextOpenDay(program, addDays(today, 1))}
+          todayActivity={todayActivity}
+          progress={computeTadarusProgress(readings)}
+        />
+      );
+    }),
+  );
+  const tadarusSection = tadarusCards.length > 0 && (
+    <div className="mb-6 grid gap-4">{tadarusCards}</div>
+  );
+
+  if (!primary) {
+    return (
+      <>
+        {greeting}
+        {tadarusSection}
       </>
     );
   }
@@ -139,13 +183,15 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      {tadarusSection}
+
       <section aria-labelledby="pencapaian" className="mb-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 id="pencapaian" className="text-base font-semibold">
             Pencapaian {formatMonth(month)}
           </h2>
           <Link
-            href="/dashboard/stats"
+            href={`/dashboard/stats?program=${primary.slug}`}
             className="inline-flex items-center gap-0.5 text-sm font-medium text-primary hover:underline"
           >
             Detail <ChevronRight className="size-4" aria-hidden />

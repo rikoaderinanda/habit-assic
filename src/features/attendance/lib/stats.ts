@@ -4,21 +4,26 @@
  *
  * Day window (BR-5): from max(month start, member join date, program start)
  * to min(month end, program end, today). Today only counts once it has been
- * reported — the day is not over yet, so it is never "missed".
+ * reported — the day is not over yet, so it is never "missed". Days off the
+ * program's weekly schedule (e.g. Tadarus only on Mondays) never count.
  */
 import type { ActivityStatus } from "@prisma/client";
 
+import { isScheduledOn } from "@/features/programs/lib/program-window";
 import { addDays, eachDayOfMonth, monthRange, toDateKey, type MonthRef } from "@/lib/date";
 
 export type DayState =
   | "JAMAAH"
   | "SENDIRI"
+  | "HADIR"
   /** In the window, in the past, not reported. */
   | "MISSED"
   /** Today, in the window, not reported yet. */
   | "PENDING"
   /** Before the member joined / outside the program window. */
   | "OUTSIDE"
+  /** Not a scheduled day for this program. */
+  | "OFF"
   | "FUTURE";
 
 export type ActivityLike = {
@@ -26,6 +31,10 @@ export type ActivityLike = {
   status: ActivityStatus;
   notes?: string | null;
   createdAt?: Date;
+  surahFrom?: number | null;
+  ayahFrom?: number | null;
+  surahTo?: number | null;
+  ayahTo?: number | null;
 };
 
 export type DayCell = {
@@ -42,8 +51,10 @@ export type MonthlyStats = {
   effectiveDays: number;
   jamaah: number;
   sendiri: number;
+  /** Tadarus sessions attended. */
+  hadir: number;
   missed: number;
-  /** Jamaah ÷ effective days, 0–100, rounded (BR-4). */
+  /** (Jamaah or Hadir) ÷ effective days, 0–100, rounded (BR-4). */
   percentage: number;
   days: DayCell[];
 };
@@ -53,6 +64,8 @@ export type WindowBounds = {
   notBefore?: Array<Date | null | undefined>;
   /** Program end date, … (date-only values). */
   notAfter?: Array<Date | null | undefined>;
+  /** Program's ISO weekdays (1 = Senin … 7 = Ahad); empty/omitted = every day. */
+  scheduleDays?: number[];
 };
 
 function latest(dates: Date[]): Date {
@@ -80,9 +93,12 @@ export function computeMonthlyStats(input: {
   const from = latest([start, ...(bounds.notBefore ?? []).filter(defined)]);
   const to = earliest([lastDay, ...(bounds.notAfter ?? []).filter(defined)]);
 
+  const schedule = { scheduleDays: bounds.scheduleDays ?? [] };
+
   const byDay = new Map(activities.map((a) => [toDateKey(a.date), a]));
   let jamaah = 0;
   let sendiri = 0;
+  let hadir = 0;
   let missed = 0;
 
   const days = eachDayOfMonth(month).map((date): DayCell => {
@@ -95,11 +111,14 @@ export function computeMonthlyStats(input: {
       // (e.g. an admin later moved the program start date).
       state = activity.status;
       if (activity.status === "JAMAAH") jamaah++;
+      else if (activity.status === "HADIR") hadir++;
       else sendiri++;
+    } else if (date.getTime() < from.getTime() || date.getTime() > to.getTime()) {
+      state = date.getTime() > today.getTime() ? "FUTURE" : "OUTSIDE";
+    } else if (!isScheduledOn(schedule, date)) {
+      state = "OFF";
     } else if (date.getTime() > today.getTime()) {
       state = "FUTURE";
-    } else if (date.getTime() < from.getTime() || date.getTime() > to.getTime()) {
-      state = "OUTSIDE";
     } else if (date.getTime() === today.getTime()) {
       state = "PENDING";
     } else {
@@ -110,15 +129,18 @@ export function computeMonthlyStats(input: {
     return { date, key, state, activity };
   });
 
-  const effectiveDays = jamaah + sendiri + missed;
+  const effectiveDays = jamaah + sendiri + hadir + missed;
   return {
     month,
     daysInMonth: days.length,
     effectiveDays,
     jamaah,
     sendiri,
+    hadir,
     missed,
-    percentage: percentageOf(jamaah, effectiveDays),
+    // A program only ever has JAMAAH/SENDIRI or HADIR reports, so this is Jamaah ÷ days for
+    // Shalat programs and Hadir ÷ sessions for Tadarus.
+    percentage: percentageOf(jamaah + hadir, effectiveDays),
     days,
   };
 }

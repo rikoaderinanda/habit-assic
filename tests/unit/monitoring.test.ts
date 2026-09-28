@@ -39,7 +39,7 @@ describe("buildMonitoringRows", () => {
       ],
       month: { year: 2026, month: 9 },
       today: d("2026-09-21"),
-      program: { startDate: null, endDate: null },
+      program: { startDate: null, endDate: null, scheduleDays: [] },
       timeZone: WIB,
     });
 
@@ -143,7 +143,7 @@ describe("dailyParticipation", () => {
         { userId: "b", date: d("2026-09-02"), status: "JAMAAH" },
         { userId: "ghost", date: d("2026-09-03"), status: "JAMAAH" },
       ],
-      program: { startDate: null, endDate: null },
+      program: { startDate: null, endDate: null, scheduleDays: [] },
       timeZone: WIB,
     });
     expect(points.map((p) => [p.key, p.members, p.jamaah, p.sendiri, p.missed])).toEqual([
@@ -159,7 +159,7 @@ describe("dailyParticipation", () => {
       days: 2,
       members: [{ id: "a", createdAt: new Date("2026-08-01T00:00:00Z") }],
       activities: [],
-      program: { startDate: d("2026-09-02"), endDate: null },
+      program: { startDate: d("2026-09-02"), endDate: null, scheduleDays: [] },
       timeZone: WIB,
     });
     expect(points.map((p) => p.members)).toEqual([0, 1]);

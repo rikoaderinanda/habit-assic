@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { submitActivitySchema } from "@/features/attendance/schemas";
 import { parseDateKey } from "@/lib/date";
+import type { ProgramSummary } from "@/server/services/program.service";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 const RUN = `it-${randomUUID().slice(0, 8)}`;
@@ -20,15 +21,7 @@ describe.skipIf(!hasDb)("submitActivityForToday + monthly stats", () => {
   const prisma = new PrismaClient();
   let service: typeof import("@/server/services/activity.service");
   let userId: string;
-  let program: {
-    id: string;
-    slug: string;
-    name: string;
-    description: string | null;
-    active: boolean;
-    startDate: Date | null;
-    endDate: Date | null;
-  };
+  let program: ProgramSummary;
   let inactiveProgramId: string;
   let futureProgramId: string;
 
@@ -46,6 +39,8 @@ describe.skipIf(!hasDb)("submitActivityForToday + monthly stats", () => {
         name: true,
         description: true,
         active: true,
+        kind: true,
+        scheduleDays: true,
         startDate: true,
         endDate: true,
       },

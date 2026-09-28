@@ -31,6 +31,7 @@
 | F-11 | Export CSV: nama, jumlah jamaah, jumlah sendiri, persentase (sesuai filter bulan) | ADMIN | 6 |
 | F-12 | Audit log: `LOGIN`, `SUBMIT_ACTIVITY` (ditambah aksi admin: `EXPORT_CSV`, `PROGRAM_*`, `ROLE_CHANGE`) | Sistem | 4–6 |
 | F-13 | Kelola role anggota (promote/demote ADMIN) — pelengkap F-10 agar admin tidak bergantung pada env | ADMIN | 6 |
+| F-14 | **Tadarus Qur'an**: admin memilih jenis program *Tadarus* dan jadwal hari dalam sepekan (default Senin); anggota mengisi bacaan *dari surah:ayat sampai surah:ayat*. Beranda menampilkan sesi berikutnya dan progres menuju khatam; admin melihat bacaan tiap anggota per sesi. | Semua | 11 |
 
 ### 1.3 Non-Functional Requirements
 
@@ -61,6 +62,9 @@ Aturan berikut tidak disebut eksplisit di brief. Saya tetapkan default di bawah;
 | BR-8 | Tombol laporan hanya aktif untuk program dengan `active = true`. Program nonaktif tetap tampil di riwayat. | Riwayat tidak boleh hilang saat program ditutup. |
 | BR-9 | Admin pertama di-bootstrap via env `ADMIN_EMAILS` (dipisah koma); dicek setiap login. | Menghindari akses manual ke database hanya untuk membuat admin pertama. |
 | BR-10 | ADMIN juga bisa mengisi laporan (admin bisa sekaligus anggota asrama). Admin tidak bisa men-demote dirinya sendiri. | Mencegah sistem kehilangan semua admin. |
+| BR-13 | **Jadwal mingguan** (`programs.scheduleDays`, ISO 1 = Senin … 7 = Ahad; kosong = setiap hari). Laporan hanya diterima pada hari terjadwal; hari di luar jadwal berstatus `OFF` dan tidak dihitung sebagai hari efektif maupun "belum isi". | Tadarus hanya Senin: anggota tidak boleh dianggap bolos pada hari Selasa–Ahad. |
+| BR-14 | **Jenis program** (`SHALAT` / `TADARUS`) tetap setelah dibuat, seperti slug. Program Shalat menerima `JAMAAH`/`SENDIRI` tanpa bacaan; Tadarus menerima `HADIR` + bacaan lengkap. Persentase Tadarus = sesi hadir ÷ sesi terjadwal. BR-2/BR-3 tetap berlaku (tanggal dari server, tanpa backfill/ubah). | Bentuk setiap laporan bergantung pada jenis; mengubahnya akan merusak riwayat. |
+| BR-15 | **Bacaan** disimpan sebagai rentang inklusif `surahFrom:ayahFrom → surahTo:ayahTo` (boleh lintas surah). Jumlah ayat, juz, dan progres khatam dihitung dari data statis mushaf (114 surah, 6.236 ayat) di `src/features/tadarus/lib/quran.ts`. Form otomatis melanjutkan dari ayat setelah bacaan terakhir. Progres khatam = posisi akhir bacaan terakhir ÷ 6.236; bacaan yang sampai An-Nas 6 dihitung 1× khatam. | Tanpa tabel master surah: data mushaf tidak pernah berubah. |
 | BR-11 | Anggota yang dihitung di statistik admin = user dengan role `USER` **dan** `ADMIN` yang aktif (`isActive = true`). Admin dapat menonaktifkan anggota yang sudah keluar asrama. | Anggota alumni tidak boleh merusak persentase "belum input". |
 
 ---
@@ -108,6 +112,8 @@ erDiagram
         string slug UK "subuh-berjamaah"
         string name
         string description
+        enum kind "SHALAT | TADARUS, default SHALAT"
+        int[] scheduleDays "ISO weekday, [] = setiap hari"
         boolean active "default true"
         date startDate "nullable"
         date endDate "nullable"
@@ -122,6 +128,10 @@ erDiagram
         date date "WIB, server-side"
         enum status "JAMAAH | SENDIRI"
         string notes "nullable, max 500"
+        smallint surahFrom "TADARUS, nullable"
+        smallint ayahFrom "TADARUS, nullable"
+        smallint surahTo "TADARUS, nullable"
+        smallint ayahTo "TADARUS, nullable"
         timestamp createdAt
         timestamp updatedAt
     }
@@ -147,6 +157,8 @@ erDiagram
 | `activities` | `INDEX(programId, date)` | Admin: "siapa yang sudah input hari ini" & agregasi bulanan |
 | `activities` | *(dicakup oleh unique di atas)* | Riwayat & statistik user selalu memfilter `userId + programId + rentang date`, yaitu prefix dari unique index. Index `(userId, date)` terpisah jadi redundan dan **tidak dibuat**. |
 | `programs` | `CHECK (end_date >= start_date)` | Rentang program valid |
+| `programs` | `CHECK (schedule_days <@ {1..7})` | Jadwal hanya berisi hari ISO |
+| `activities` | `CHECK` bacaan lengkap (4 kolom terisi semua atau kosong semua) & tidak mundur (`(surah_to, ayah_to) >= (surah_from, ayah_from)`, surah 1–114) | Integritas bacaan Tadarus; batas ayat per surah divalidasi Zod |
 | Semua tabel | **Row Level Security aktif, tanpa policy** | Menutup Supabase Data API (PostgREST, role `anon`/`authenticated`). Prisma terhubung sebagai owner tabel sehingga tidak terpengaruh. Migration `security_hardening`. |
 | `activities` | FK `userId → users ON DELETE CASCADE`, FK `programId → programs ON DELETE RESTRICT` | Program yang punya data tidak bisa dihapus (harus dinonaktifkan) |
 | `logs` | `INDEX(userId, createdAt)`, `INDEX(action, createdAt)`, FK `userId → users ON DELETE SET NULL` | Audit log tetap ada walau user dihapus |
@@ -155,7 +167,8 @@ erDiagram
 
 ```text
 Role           : USER, ADMIN
-ActivityStatus : JAMAAH, SENDIRI
+ProgramKind    : SHALAT, TADARUS
+ActivityStatus : JAMAAH, SENDIRI, HADIR
 LogAction      : LOGIN, SUBMIT_ACTIVITY, EXPORT_CSV,
                  PROGRAM_CREATE, PROGRAM_UPDATE, ROLE_CHANGE, USER_STATUS_CHANGE
 ```
@@ -168,7 +181,7 @@ Label UI "BERJAMAAH" dipetakan ke nilai enum `JAMAAH`.
 |---|---|---|
 | Tahajud, Kajian | Status ya/tidak | Tambah nilai enum `HADIR` / `TIDAK_HADIR` (1 migration) + `programs.statusOptions` |
 | Puasa | Status ya/tidak per hari | Sama seperti di atas |
-| Tilawah, Hafalan | Angka (halaman / ayat) | Tambah kolom `activities.value INT NULL` |
+| Tilawah, Hafalan | Surah & ayat | ✅ Sudah tersedia lewat jenis `TADARUS` (kolom bacaan) |
 
 Tabel, relasi, unique constraint, statistik, dan halaman admin **tidak berubah**. Semua query sudah memfilter berdasarkan `programId`.
 Kolom `statusOptions` dan `value` sengaja **belum** dibuat sekarang (YAGNI). Skema saat ini sudah bisa menampungnya tanpa refactor.
@@ -316,7 +329,7 @@ sequenceDiagram
 | `/` | Publik | Redirect ke `/dashboard` atau `/login` |
 | `/login` | Publik | Tombol "Login dengan Google" |
 | `/dashboard` | USER, ADMIN | Profil, kartu program aktif, status hari ini, ringkasan bulan |
-| `/dashboard/report/[slug]` | USER, ADMIN | Form laporan hari ini |
+| `/dashboard/report/[slug]` | USER, ADMIN | Form laporan hari ini (Shalat: status; Tadarus: surah & ayat). Di luar jadwal: info sesi berikutnya |
 | `/dashboard/stats` | USER, ADMIN | Progress circle, chart, kalender bulanan (pilih bulan) |
 | `/dashboard/history` | USER, ADMIN | Riwayat per bulan |
 | `/admin/dashboard` | ADMIN | Statistik hari ini + tren |

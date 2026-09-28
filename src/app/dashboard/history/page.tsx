@@ -8,13 +8,14 @@ import { HistoryList } from "@/features/attendance/components/history-list";
 import { ProgramTabs } from "@/features/attendance/components/program-tabs";
 import type { SearchParams } from "@/features/attendance/lib/page-params";
 import { resolveMemberView } from "@/features/attendance/lib/resolve-view";
+import { sumAyahs } from "@/features/tadarus/lib/progress";
 import { formatMonth } from "@/lib/date";
 import { requireUser } from "@/server/guards";
 import { getMemberMonthlyStats } from "@/server/services/activity.service";
 
 export const metadata: Metadata = { title: "Riwayat" };
 
-const LISTED_STATES = new Set(["JAMAAH", "SENDIRI", "MISSED", "PENDING"]);
+const LISTED_STATES = new Set(["JAMAAH", "SENDIRI", "HADIR", "MISSED", "PENDING"]);
 
 export default async function HistoryPage({
   searchParams,
@@ -38,7 +39,7 @@ export default async function HistoryPage({
     );
   }
 
-  const { stats } = await getMemberMonthlyStats({ user, program, month, today });
+  const { stats, activities } = await getMemberMonthlyStats({ user, program, month, today });
   const days = stats.days.filter((d) => LISTED_STATES.has(d.state)).reverse();
 
   return (
@@ -70,14 +71,27 @@ export default async function HistoryPage({
         />
       ) : (
         <>
-          <p className="mb-3 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground tabular-nums">{stats.jamaah}</span>{" "}
-            berjamaah ·{" "}
-            <span className="font-medium text-foreground tabular-nums">{stats.sendiri}</span>{" "}
-            sendiri ·{" "}
-            <span className="font-medium text-foreground tabular-nums">{stats.missed}</span> belum
-            isi
-          </p>
+          {program.kind === "TADARUS" ? (
+            <p className="mb-3 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground tabular-nums">{stats.hadir}</span> sesi
+              hadir ·{" "}
+              <span className="font-medium text-foreground tabular-nums">{stats.missed}</span> belum
+              isi ·{" "}
+              <span className="font-medium text-foreground tabular-nums">
+                {sumAyahs(activities).toLocaleString("id-ID")}
+              </span>{" "}
+              ayat
+            </p>
+          ) : (
+            <p className="mb-3 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground tabular-nums">{stats.jamaah}</span>{" "}
+              berjamaah ·{" "}
+              <span className="font-medium text-foreground tabular-nums">{stats.sendiri}</span>{" "}
+              sendiri ·{" "}
+              <span className="font-medium text-foreground tabular-nums">{stats.missed}</span> belum
+              isi
+            </p>
+          )}
           <HistoryList days={days} />
         </>
       )}

@@ -1,10 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Pencil, Plus } from "lucide-react";
+import type { ProgramKind } from "@prisma/client";
+import { BookOpen, Loader2, Pencil, Plus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -21,14 +22,38 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { callAction } from "@/lib/call-action";
+import { cn } from "@/lib/utils";
 
 import { createProgramAction, updateProgramAction } from "../actions";
+import { WEEKDAYS, scheduleLabel } from "../lib/program-window";
 import { createProgramSchema, slugify, type CreateProgramInput } from "../schemas";
+
+const KINDS: Array<{
+  value: ProgramKind;
+  label: string;
+  description: string;
+  icon: typeof Users;
+}> = [
+  {
+    value: "SHALAT",
+    label: "Shalat berjamaah",
+    description: "Anggota memilih Berjamaah atau Sendiri",
+    icon: Users,
+  },
+  {
+    value: "TADARUS",
+    label: "Tadarus Qur'an",
+    description: "Anggota mengisi surah & ayat yang dibaca",
+    icon: BookOpen,
+  },
+];
 
 type Initial = {
   id: string;
   slug: string;
   name: string;
+  kind: ProgramKind;
+  scheduleDays: number[];
   description: string | null;
   startDate: string;
   endDate: string;
@@ -47,6 +72,8 @@ export function ProgramFormDialog({ initial }: { initial?: Initial }) {
   const defaults: FormValues = {
     name: initial?.name ?? "",
     slug: initial?.slug ?? "",
+    kind: initial?.kind ?? "SHALAT",
+    scheduleDays: initial?.scheduleDays ?? [],
     description: initial?.description ?? "",
     startDate: initial?.startDate ?? "",
     endDate: initial?.endDate ?? "",
@@ -146,6 +173,116 @@ export function ProgramFormDialog({ initial }: { initial?: Initial }) {
               </FieldDescription>
               <FieldError errors={[errors.slug]} />
             </Field>
+
+            <Controller
+              control={form.control}
+              name="kind"
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel id="program-kind-label">Jenis program</FieldLabel>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="program-kind-label"
+                    className="grid grid-cols-2 gap-2"
+                  >
+                    {KINDS.map((kind) => {
+                      const selected = field.value === kind.value;
+                      const Icon = kind.icon;
+                      return (
+                        <button
+                          key={kind.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          disabled={isPending || (isEdit && !selected)}
+                          onClick={() => {
+                            field.onChange(kind.value);
+                            // Tadarus is usually weekly: start from Monday.
+                            if (
+                              kind.value === "TADARUS" &&
+                              form.getValues("scheduleDays").length === 0
+                            )
+                              form.setValue("scheduleDays", [1]);
+                          }}
+                          className={cn(
+                            "flex flex-col items-start gap-1.5 rounded-xl border-2 p-3 text-left transition-colors disabled:cursor-not-allowed",
+                            selected
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/40 disabled:opacity-50",
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "size-5",
+                              selected ? "text-primary" : "text-muted-foreground",
+                            )}
+                            aria-hidden
+                          />
+                          <span className="text-sm font-semibold">{kind.label}</span>
+                          <span className="text-xs text-muted-foreground">{kind.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {isEdit && (
+                    <FieldDescription>
+                      Jenis program tidak dapat diubah setelah dibuat.
+                    </FieldDescription>
+                  )}
+                </Field>
+              )}
+            />
+
+            <Controller
+              control={form.control}
+              name="scheduleDays"
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid || undefined}>
+                  <FieldLabel id="program-schedule-label">Jadwal</FieldLabel>
+                  <div
+                    role="group"
+                    aria-labelledby="program-schedule-label"
+                    className="grid grid-cols-7 gap-1.5"
+                  >
+                    {WEEKDAYS.map((day) => {
+                      const on = field.value.includes(day.iso);
+                      return (
+                        <button
+                          key={day.iso}
+                          type="button"
+                          aria-pressed={on}
+                          aria-label={day.long}
+                          disabled={isPending}
+                          onClick={() =>
+                            field.onChange(
+                              on
+                                ? field.value.filter((d) => d !== day.iso)
+                                : [...field.value, day.iso],
+                            )
+                          }
+                          className={cn(
+                            "h-10 rounded-xl border text-xs font-semibold transition-colors",
+                            on
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                          )}
+                        >
+                          {day.short}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <FieldDescription>
+                    <span className="font-medium text-foreground">
+                      {scheduleLabel(field.value)}
+                    </span>
+                    {" · "}anggota hanya bisa melapor pada hari terjadwal. Tidak memilih hari =
+                    setiap hari.
+                  </FieldDescription>
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
+              )}
+            />
 
             <Field data-invalid={Boolean(errors.description) || undefined}>
               <FieldLabel htmlFor="program-description">
